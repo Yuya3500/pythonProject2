@@ -1,8 +1,6 @@
 import os
-import time
 import pandas as pd
 import streamlit as st
-import yfinance as yf
 
 st.set_page_config(
     page_title="トレンド反転サイン スクリーニング", layout="wide"
@@ -45,11 +43,16 @@ target_signal = st.sidebar.selectbox(
 
 
 # --- 4. データ読み込み機能 ---
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=300)
 def load_data():
-  if os.path.exists("results.csv") and os.path.getsize("results.csv") > 10:
-    return pd.read_csv("results.csv")
-  return pd.DataFrame()
+  # GitHub上のRAWデータを直接参照（ローカル参照の不安定さを完全に排除）
+  raw_url = "https://raw.githubusercontent.com/Yuya3500/pythonProject2/main/results.csv"
+  try:
+    return pd.read_csv(raw_url)
+  except Exception:
+    if os.path.exists("results.csv") and os.path.getsize("results.csv") > 10:
+      return pd.read_csv("results.csv")
+    return pd.DataFrame()
 
 
 df = load_data()
@@ -71,8 +74,7 @@ if not df.empty:
       )
 
   st.subheader("📋 最新スクリーニング結果一覧")
-  # hide_index=True で左端の 0, 1, 2... を非表示
-  st.dataframe(df, use_container_width=True, hide_index=True)
+  st.dataframe(df, width="stretch", hide_index=True)
 else:
   st.warning(
       "現在、自動スクリーニングデータを準備中です。GitHub Actionsの完了をお待ちください。"
