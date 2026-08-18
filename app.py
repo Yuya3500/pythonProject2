@@ -23,10 +23,10 @@ if not st.session_state.authenticated:
       st.error("パスワードが違います")
   st.stop()
 
-# --- 2. スクリーニング処理 ---
 st.title("📊 トレンド反転サイン スクリーニング")
 
 
+# --- 2. データ取得処理 ---
 @st.cache_data(ttl=1800)
 def fetch_data():
   TARGET_TICKERS = [
@@ -59,9 +59,10 @@ def fetch_data():
   for symbol in TARGET_TICKERS:
     try:
       stock = yf.Ticker(symbol)
-      df_m = stock.history(period="6m", interval="1mo")
-      df_w = stock.history(period="3m", interval="1wk")
-      df_d = stock.history(period="1m", interval="1d")
+      # 正しいパラメータ(6mo, 3mo, 1mo)
+      df_m = stock.history(period="6mo", interval="1mo")
+      df_w = stock.history(period="3mo", interval="1wk")
+      df_d = stock.history(period="1mo", interval="1d")
 
       if df_m.empty or df_d.empty:
         continue
@@ -84,14 +85,14 @@ def fetch_data():
   return pd.DataFrame(results)
 
 
-# ローカルCSVが存在すれば優先、無ければ取得
+# ローカルCSVがあれば読み込み、無ければ通信取得
 if os.path.exists("results.csv") and os.path.getsize("results.csv") > 10:
   df = pd.read_csv("results.csv")
 else:
-  with st.spinner("データを取得中..."):
+  with st.spinner("最新データを取得中..."):
     df = fetch_data()
 
-# --- 3. UI表示 ---
+# --- 3. メインUI表示 ---
 st.sidebar.header("⚙️ 抽出条件設定")
 market_filter = st.sidebar.selectbox(
     "対象市場", ["すべて", "米国株", "日本株"]
@@ -126,4 +127,4 @@ if not df.empty:
   st.subheader("📋 最新スクリーニング結果一覧")
   st.dataframe(df, use_container_width=True)
 else:
-  st.error("データの表示に失敗しました。")
+  st.error("データの取得に失敗しました。")

@@ -108,9 +108,10 @@ def main():
   for symbol in TARGET_TICKERS:
     try:
       stock = yf.Ticker(symbol)
+      # 正しい指定値: 1mo, 6mo, 1mo (oが必要)
       df_m = stock.history(period="1y", interval="1mo")
-      df_w = stock.history(period="6m", interval="1wk")
-      df_d = stock.history(period="1m", interval="1d")
+      df_w = stock.history(period="6mo", interval="1wk")
+      df_d = stock.history(period="1mo", interval="1d")
 
       if df_m.empty or df_d.empty:
         continue
@@ -133,9 +134,6 @@ def main():
   df = pd.DataFrame(results)
   if not df.empty:
     df.to_csv("results.csv", index=False, encoding="utf-8-sig")
-    print(f"Successfully generated results.csv with {len(df)} rows.")
-  else:
-    print("Warning: No data collected.")
 
 
 if __name__ == "__main__":
