@@ -1,4 +1,3 @@
-import time
 import pandas as pd
 import streamlit as st
 import yfinance as yf
@@ -23,8 +22,8 @@ if not st.session_state.authenticated:
   st.stop()
 
 
-# --- 2. データ取得・スクリーニング処理 (キャッシュ機能付き) ---
-@st.cache_data(ttl=3600)  # 1時間ごとに最新データを自動再取得
+# --- 2. 高速一括データ取得・スクリーニング処理 ---
+@st.cache_data(ttl=3600)
 def load_screening_data():
   TARGET_TICKERS = [
       "AAPL",
@@ -115,43 +114,66 @@ def load_screening_data():
 
   results = []
 
-  def get_signal_symbol(df, index_offset):
-    if len(df) < abs(index_offset):
+  def calc_signal(close, open_p):
+    if pd.isna(close) or pd.isna(open_p) or open_p == 0:
       return "-"
-    close = df["Close"].iloc[index_offset]
-    open_p = df["Open"].iloc[index_offset]
     if close > open_p * 1.05:
       return "▲"
     elif close < open_p * 0.95:
       return "▼"
     return "-"
 
-  for symbol in TARGET_TICKERS:
-    try:
-      stock = yf.Ticker(symbol)
-      df_m = stock.history(period="1y", interval="1mo")
-      df_w = stock.history(period="6m", interval="1wk")
-      df_d = stock.history(period="1m", interval="1d")
+  try:
+    # 1回のリクエストで全銘柄を一括ダウンロード
+    data_d = yf.download(
+        TARGET_TICKERS, period="1m", interval="1d", progress=False
+    )
+    data_w = yf.download(
+        TARGET_TICKERS, period="6m", interval="1wk", progress=False
+    )
+    data_m = yf.download(
+        TARGET_TICKERS, period="1y", interval="1mo", progress=False
+    )
 
-      if df_m.empty or df_d.empty:
+    for symbol in TARGET_TICKERS:
+      try:
+        # 各足のClose/Open取得
+        df_d_c = data_d["Close"][symbol].dropna()
+        df_d_o = data_d["Open"][symbol].dropna()
+        df_w_c = data_w["Close"][symbol].dropna()
+        df_w_o = data_w["Open"][symbol].dropna()
+        df_m_c = data_m["Close"][symbol].dropna()
+        df_m_o = data_m["Open"][symbol].dropna()
+
+        if len(df_d_c) < 2 or len(df_m_c) < 2:
+          continue
+
+        market = "日本株" if symbol.endswith(".T") else "米国株"
+
+        row = {
+            "市場": market,
+            "銘柄": symbol.replace(".T", ""),
+            "月足_直近": calc_signal(df_m_c.iloc[-1], df_m_o.iloc[-1]),
+            "月足_前月": calc_signal(df_m_c.iloc[-2], df_m_o.iloc[-2]),
+            "週足_直近": (
+                calc_signal(df_w_c.iloc[-1], df_w_o.iloc[-1])
+                if len(df_w_c) >= 1
+                else "-"
+            ),
+            "週足_前週": (
+                calc_signal(df_w_c.iloc[-2], df_w_o.iloc[-2])
+                if len(df_w_c) >= 2
+                else "-"
+            ),
+            "日足_直近": calc_signal(df_d_c.iloc[-1], df_d_o.iloc[-1]),
+            "日足_前日": calc_signal(df_d_c.iloc[-2], df_d_o.iloc[-2]),
+        }
+        results.append(row)
+      except Exception:
         continue
 
-      market = "日本株" if symbol.endswith(".T") else "米国株"
-
-      row = {
-          "市場": market,
-          "銘柄": symbol.replace(".T", ""),
-          "月足_直近": get_signal_symbol(df_m, -1),
-          "月足_前月": get_signal_symbol(df_m, -2),
-          "週足_直近": get_signal_symbol(df_w, -1),
-          "週足_前週": get_signal_symbol(df_w, -2),
-          "日足_直近": get_signal_symbol(df_d, -1),
-          "日足_前日": get_signal_symbol(df_d, -2),
-      }
-      results.append(row)
-      time.sleep(0.05)
-    except Exception:
-      continue
+  except Exception:
+    pass
 
   return pd.DataFrame(results)
 
@@ -159,8 +181,7 @@ def load_screening_data():
 # --- 3. メイン画面 ---
 st.title("📊 トレンド反転サイン スクリーニング")
 
-# データの読み込み
-with st.spinner("最新データを取得中..."):
+with st.spinner("最新データを一括ダウンロード中..."):
   df = load_screening_data()
 
 if st.button("🔄 データを手動更新（キャッシュクリア）"):
@@ -202,4 +223,7 @@ if not df.empty:
   st.subheader("📋 最新スクリーニング結果一覧")
   st.dataframe(df, use_container_width=True)
 else:
-  st.error("データの取得に失敗しました。時間をおいて再試行してください。")
+  st.error(
+      "現在Yahoo"
+      " Financeの通信制限がかかっています。1分ほど置いてから「手動更新」を押してください。"
+  )
