@@ -9,14 +9,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -31,10 +27,8 @@ jobs:
       - name: Run screening
         run: python batch_screening.py
 
-      - name: Commit and push results
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f results.csv
-          git commit -m "Auto update screening results" || exit 0
-          git push
+      - name: Upload results artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: screening-results
+          path: results.csv

@@ -23,42 +23,33 @@ if not st.session_state.authenticated:
       st.error("パスワードが違います")
   st.stop()
 
-# --- 2. メイン画面 ---
+# --- 2. スクリーニング処理 ---
 st.title("📊 トレンド反転サイン スクリーニング")
 
-CSV_FILE = "results.csv"
 
-
-# データロード関数
-def load_data():
-  # パターン1: ディスク上のCSVを読む
-  if os.path.exists(CSV_FILE) and os.path.getsize(CSV_FILE) > 10:
-    try:
-      df = pd.read_csv(CSV_FILE)
-      if not df.empty:
-        return df
-    except Exception:
-      pass
-
-  # パターン2: 存在しない/空の場合はその場で最小セットを取得生成
+@st.cache_data(ttl=1800)
+def fetch_data():
   TARGET_TICKERS = [
       "AAPL",
       "MSFT",
       "GOOGL",
       "AMZN",
       "NVDA",
+      "META",
+      "TSLA",
       "7203.T",
       "8306.T",
       "6758.T",
       "9984.T",
+      "6861.T",
   ]
   results = []
 
-  def get_signal_symbol(df_stock, index_offset):
-    if len(df_stock) < abs(index_offset):
+  def get_signal_symbol(df, index_offset):
+    if len(df) < abs(index_offset):
       return "-"
-    close = df_stock["Close"].iloc[index_offset]
-    open_p = df_stock["Open"].iloc[index_offset]
+    close = df["Close"].iloc[index_offset]
+    open_p = df["Open"].iloc[index_offset]
     if close > open_p * 1.05:
       return "▲"
     elif close < open_p * 0.95:
@@ -86,19 +77,21 @@ def load_data():
           "日足_直近": get_signal_symbol(df_d, -1),
           "日足_前日": get_signal_symbol(df_d, -2),
       })
-      time.sleep(0.1)
+      time.sleep(0.05)
     except Exception:
       continue
 
-  df_res = pd.DataFrame(results)
-  if not df_res.empty:
-    df_res.to_csv(CSV_FILE, index=False, encoding="utf-8-sig")
-  return df_res
+  return pd.DataFrame(results)
 
 
-df = load_data()
+# ローカルCSVが存在すれば優先、無ければ取得
+if os.path.exists("results.csv") and os.path.getsize("results.csv") > 10:
+  df = pd.read_csv("results.csv")
+else:
+  with st.spinner("データを取得中..."):
+    df = fetch_data()
 
-# サイドバー設定
+# --- 3. UI表示 ---
 st.sidebar.header("⚙️ 抽出条件設定")
 market_filter = st.sidebar.selectbox(
     "対象市場", ["すべて", "米国株", "日本株"]
@@ -133,6 +126,4 @@ if not df.empty:
   st.subheader("📋 最新スクリーニング結果一覧")
   st.dataframe(df, use_container_width=True)
 else:
-  st.error(
-      "データの読み込み・自動生成に失敗しました。時間をおいて再読み込みしてください。"
-  )
+  st.error("データの表示に失敗しました。")
