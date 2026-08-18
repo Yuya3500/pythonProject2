@@ -2,28 +2,29 @@ name: Auto Screening Scheduler
 
 on:
   schedule:
-    # UTC時刻で指定（JST-9時間）
-    # 4時(JST) ->前日19時(UTC), 6時(JST) ->前日21時(UTC), 14時(JST) ->5時(UTC), 17時(JST) ->8時(UTC)
     - cron: '0 19,21 * * *'
     - cron: '0 5,8 * * *'
-  workflow_dispatch: # 手動実行用ボタン
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pandas yfinance
+          pip install pandas yfinance lxml
 
       - name: Run screening
         run: python batch_screening.py
