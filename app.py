@@ -42,17 +42,12 @@ target_signal = st.sidebar.selectbox(
 )
 
 
-# --- 4. データ読み込み機能 ---
-@st.cache_data(ttl=300)
+# --- 4. データ読み込み（キャッシュ無効化で最新CSVを強制読み込み） ---
 def load_data():
-  # GitHub上のRAWデータを直接参照（ローカル参照の不安定さを完全に排除）
-  raw_url = "https://raw.githubusercontent.com/Yuya3500/pythonProject2/main/results.csv"
-  try:
-    return pd.read_csv(raw_url)
-  except Exception:
-    if os.path.exists("results.csv") and os.path.getsize("results.csv") > 10:
-      return pd.read_csv("results.csv")
-    return pd.DataFrame()
+  CSV_FILE = "results.csv"
+  if os.path.exists(CSV_FILE) and os.path.getsize(CSV_FILE) > 10:
+    return pd.read_csv(CSV_FILE, dtype={"銘柄": str})
+  return pd.DataFrame()
 
 
 df = load_data()
@@ -74,6 +69,7 @@ if not df.empty:
       )
 
   st.subheader("📋 最新スクリーニング結果一覧")
+  # hide_index=True でインデックス(0,1,2..)を非表示にし、全84銘柄を表示
   st.dataframe(df, width="stretch", hide_index=True)
 else:
   st.warning(
