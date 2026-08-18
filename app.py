@@ -1,4 +1,27 @@
 import streamlit as st
+
+# パスワード認証関数
+def check_password():
+    def password_entered():
+        if st.session_state["password"] == "your_password_here": # 👈 "your_password_here" の部分をご自身の好きなパスワードに変更してください
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        st.text_input("パスワードを入力してください", type="password", on_change=password_entered, key="password")
+        return False
+    elif not st.session_state["password_correct"]:
+        st.text_input("パスワードを入力してください", type="password", on_change=password_entered, key="password")
+        return False
+    else:
+        return True
+
+if not check_password():
+    st.stop() # パスワードが合わないとこれ以降の画面は表示されません
+
+import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
