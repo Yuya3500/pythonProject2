@@ -2,91 +2,41 @@ import time
 import pandas as pd
 import yfinance as yf
 
+# 米国株・日本株の主要指数構成銘柄リスト
+TARGET_TICKERS = [
+    # --- 米国株 (S&P500 / NASDAQ100 / DOW 主要銘柄) ---
+    "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK-B", "UNH", "JNJ",
+    "JPM", "XOM", "V", "PG", "MA", "HD", "CVX", "MRK", "ABBV", "PEP", "COST",
+    "ADBE", "MCD", "WMT", "CSCO", "ACN", "TMO", "ABT", "DHR", "NFLX", "AMD",
+    "DIS", "ORCL", "INTC", "CMCSA", "PFE", "AMGN", "TXN", "HON", "IBM", "QCOM",
+    "GE", "CAT", "BA", "SBUX", "GS", "MS", "BLK", "NOW", "INTU", "ISRG", "BKNG",
 
-def get_target_tickers():
-    tickers = set()
-
-    # --- 1. 米国株主要指数 (S&P500 / NASDAQ100 / NYダウ) ---
-    try:
-        sp500 = pd.read_html(
-            'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
-        )[0]
-        tickers.update(sp500['Symbol'].tolist())
-    except Exception:
-        pass
-
-    try:
-        nasdaq100 = pd.read_html(
-            'https://en.wikipedia.org/wiki/Nasdaq-100'
-        )[4]
-        tickers.update(nasdaq100['Ticker'].tolist())
-    except Exception:
-        pass
-
-    try:
-        dow = pd.read_html(
-            'https://en.wikipedia.org/wiki/Dow_Jones_Industrial_Average'
-        )[1]
-        tickers.update(dow['Symbol'].tolist())
-    except Exception:
-        pass
-
-    # --- 2. 日本株主要指数 (日経225) ---
-    try:
-        nikkei = pd.read_html(
-            'https://en.wikipedia.org/wiki/Nikkei_225'
-        )[1]
-        nikkei_symbols = [
-            f"{str(code).zfill(4)}.T"
-            for code in nikkei['Ticker'].dropna().astype(int)
-        ]
-        tickers.update(nikkei_symbols)
-    except Exception:
-        pass
-
-    # シンボル表記補正 (例: BRK.B -> BRK-B)
-    cleaned_tickers = [
-        str(t).replace('.', '-') if not str(t).endswith('.T') else str(t)
-        for t in tickers
-    ]
-
-    # 自動取得失敗時用の予備リスト
-    if not cleaned_tickers:
-        cleaned_tickers = [
-            "AAPL",
-            "MSFT",
-            "GOOGL",
-            "AMZN",
-            "NVDA",
-            "7203.T",
-            "8306.T",
-            "6758.T",
-            "9984.T",
-        ]
-
-    return list(set(cleaned_tickers))
+    # --- 日本株 (日経225 / TOPIX 主要銘柄) ---
+    "7203.T", "8306.T", "6758.T", "9984.T", "6861.T", "7267.T", "8035.T", "9432.T",
+    "6501.T", "7751.T", "8316.T", "6098.T", "4063.T", "8058.T", "8031.T", "3382.T",
+    "6367.T", "4568.T", "6920.T", "6902.T", "7974.T", "9020.T", "2914.T", "4519.T",
+    "6503.T", "6981.T", "8001.T", "8002.T", "8591.T", "8766.T", "9101.T", "9104.T"
+]
 
 
 def run_batch():
-    all_tickers = get_target_tickers()
-    print(
-        f"取得対象の銘柄数: {len(all_tickers)} 銘柄（重複除外済み）"
-    )
+    all_tickers = list(set(TARGET_TICKERS))
+    print(f"取得対象銘柄数: {len(all_tickers)} 銘柄")
 
     results = []
 
     def get_signal_symbol(df, index_offset):
         if len(df) < abs(index_offset):
             return "-"
-        close = df["Close"].iloc[index_offset]
-        open_p = df["Open"].iloc[index_offset]
+        close = df['Close'].iloc[index_offset]
+        open_p = df['Open'].iloc[index_offset]
         if close > open_p * 1.05:
             return "▲"
         elif close < open_p * 0.95:
             return "▼"
         return "-"
 
-    for i, symbol in enumerate(all_tickers):
+    for symbol in all_tickers:
         try:
             stock = yf.Ticker(symbol)
             df_m = stock.history(period="1y", interval="1mo")
@@ -109,18 +59,20 @@ def run_batch():
                 "日足_前日": get_signal_symbol(df_d, -2),
             }
             results.append(row)
+            time.sleep(0.1)
 
-            # Yahoo Finance側の制限回避用のウェイト
-            time.sleep(0.15)
-
-        except Exception:
+        except Exception as e:
+            print(f"Error {symbol}: {e}")
             continue
 
     df_res = pd.DataFrame(results)
-    df_res.to_csv("results.csv", index=False, encoding="utf-8-sig")
-    print(
-        f"スクリーニング完了: {len(df_res)} 銘柄を results.csv に保存しました"
-    )
+
+    # データが存在する場合のみ書き出し
+    if not df_res.empty:
+        df_res.to_csv("results.csv", index=False, encoding="utf-8-sig")
+        print(f"スクリーニング完了: {len(df_res)} 銘柄を results.csv に保存しました")
+    else:
+        print("エラー: 取得データがゼロです")
 
 
 if __name__ == "__main__":
