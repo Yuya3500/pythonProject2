@@ -6,7 +6,7 @@ st.set_page_config(
     page_title="トレンド反転サイン スクリーニング", layout="wide"
 )
 
-# ログイン認証
+# --- ログイン認証 ---
 if "authenticated" not in st.session_state:
   st.session_state.authenticated = False
 
@@ -23,7 +23,7 @@ if not st.session_state.authenticated:
 
 st.title("📊 トレンド反転サイン スクリーニング")
 
-# サイドバー設定
+# --- サイドバー設定 ---
 st.sidebar.header("⚙️ 抽出条件設定")
 market_filter = st.sidebar.selectbox(
     "対象市場", ["すべて", "米国株", "日本株"]
@@ -40,22 +40,22 @@ target_signal = st.sidebar.selectbox(
     "検出したいシグナル", ["▲ (買シグナル)", "▼ (売シグナル)"]
 )
 
+# --- データ読み込み ---
+CSV_FILE = "results.csv"
 
-@st.cache_data(ttl=600)  # 10分キャッシュ
-def load_csv():
-  # GitHubリポジトリ上の最新RAW CSVを直接読み込む
-  url = "https://raw.githubusercontent.com/Yuya3500/pythonProject2/main/results.csv"
+is_loaded = False
+df = pd.DataFrame()
+
+if os.path.exists(CSV_FILE) and os.path.getsize(CSV_FILE) > 0:
   try:
-    return pd.read_csv(url)
+    df = pd.read_csv(CSV_FILE)
+    if not df.empty:
+      is_loaded = True
   except Exception:
-    if os.path.exists("results.csv"):
-      return pd.read_csv("results.csv")
-    return pd.DataFrame()
+    pass
 
-
-df = load_csv()
-
-if not df.empty:
+# --- 画面表示処理 ---
+if is_loaded:
   if market_filter != "すべて":
     df = df[df["市場"] == market_filter]
 
@@ -74,5 +74,5 @@ if not df.empty:
   st.dataframe(df, use_container_width=True)
 else:
   st.warning(
-      "⚠️ 現在、自動スクリーニングデータを準備中です。GitHub Actionsを実行するか自動更新をお待ちください。"
+      "⚠️ 現在、自動スクリーニングデータを準備中です。GitHub Actionsの完了、またはStreamlitの自動再デプロイをお待ちください。"
   )
