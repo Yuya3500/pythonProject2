@@ -3,7 +3,7 @@ import streamlit as st
 # パスワード認証関数
 def check_password():
     def password_entered():
-        if st.session_state["password"] == "your_password_here": # 👈 "your_password_here" の部分をご自身の好きなパスワードに変更してください
+        if st.session_state["password"] == "16KTMtdcd7432": # 👈 "your_password_here" の部分をご自身の好きなパスワードに変更してください
             st.session_state["password_correct"] = True
             del st.session_state["password"]
         else:
